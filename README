@@ -1,0 +1,3 @@
+Little LuaJIT disassembler written in python.
+To use it:
+  python main.py (compiled lua file) [output lua assembly file, optional]

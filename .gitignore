@@ -1,0 +1,9 @@
+# testing issue
+*.luac
+*.luas
+
+# python issue
+__pycache__
+
+# vs code issue
+.vscode
