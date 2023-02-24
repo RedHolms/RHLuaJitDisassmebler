@@ -1,6 +1,6 @@
 from .Types import BytesWritable, BytesInitializable, Serializable
 from .Enum import Enum
-from .Utils import transform_bytes_to_user_string
+from .Utils import transform_bytes_to_user_string, normalize_number_sign, interpret_int_as_float, interpret_float_as_int
 
 from .ConstantTable import ConstantTable
 from .ByteStream import ByteStream
@@ -37,10 +37,13 @@ class GarbageCollectableConstant(BytesWritable, BytesInitializable, Serializable
       output.write_uleb128(self.value & 0xFFFFFFFF)
       output.write_uleb128((self.value >> 32) & 0xFFFFFFFF)
     elif self.type == GarbageCollectableConstantType.COMPLEX:
-      output.write_uleb128(self.value.real & 0xFFFFFFFF)
-      output.write_uleb128((self.value.real >> 32) & 0xFFFFFFFF)
-      output.write_uleb128(self.value.imag & 0xFFFFFFFF)
-      output.write_uleb128((self.value.imag >> 32) & 0xFFFFFFFF)
+      real = interpret_float_as_int(self.value.real)
+      imag = interpret_float_as_int(self.value.imag)
+
+      output.write_uleb128(real & 0xFFFFFFFF)
+      output.write_uleb128((real >> 32) & 0xFFFFFFFF)
+      output.write_uleb128(imag & 0xFFFFFFFF)
+      output.write_uleb128((imag >> 32) & 0xFFFFFFFF)
     elif self.type == GarbageCollectableConstantType.STRING:
       output.write_bytes(self.value)
 
@@ -62,12 +65,14 @@ class GarbageCollectableConstant(BytesWritable, BytesInitializable, Serializable
     elif self.type == GarbageCollectableConstantType.INT64 or self.type == GarbageCollectableConstantType.UINT64:
       self.value = input.read_uleb128()
       self.value |= input.read_uleb128() << 32
+      if self.type == GarbageCollectableConstantType.INT64:
+        self.value = normalize_number_sign(self.value)
     elif self.type == GarbageCollectableConstantType.COMPLEX:
       real = input.read_uleb128()
       real |= input.read_uleb128() << 32
       imag = input.read_uleb128()
       imag |= input.read_uleb128() << 32
-      self.value = complex(real, imag)
+      self.value = complex(interpret_int_as_float(real), interpret_int_as_float(imag))
     elif self.type >= GarbageCollectableConstantType.STRING:
       string_length = self.type - GarbageCollectableConstantType.STRING
       self.type = GarbageCollectableConstantType.STRING
@@ -83,7 +88,7 @@ class GarbageCollectableConstant(BytesWritable, BytesInitializable, Serializable
     elif self.type == GarbageCollectableConstantType.INT64 or self.type == GarbageCollectableConstantType.UINT64:
       result += str(self.value) + ("LL" if self.type == GarbageCollectableConstantType.INT64 else "ULL")
     elif self.type == GarbageCollectableConstantType.COMPLEX:
-      result += f"{self.value.real}+{self.value.imag}i"
+      result += f"{self.value.real} + {self.value.imag}i"
     elif self.type >= GarbageCollectableConstantType.STRING:
       result += f"\"{transform_bytes_to_user_string(self.value)}\""
 

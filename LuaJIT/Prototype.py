@@ -3,6 +3,11 @@ from .Types import BytesWritable, BytesInitializable, Serializable
 from .Instruction import Instruction
 from .GarbageCollectableConstant import GarbageCollectableConstant
 from .ByteStream import ByteStream
+from .NumericConstant import NumericConstant
+from .NumericConstantsHelper import NumericConstantsHelper
+
+class Prototype: pass
+class Bytecode: pass
 
 class Prototype(BytesWritable, BytesInitializable, Serializable):
   flags: int
@@ -11,9 +16,14 @@ class Prototype(BytesWritable, BytesInitializable, Serializable):
   instructions: list[Instruction]
   upvalues: list[int]
   gc_constants: list[GarbageCollectableConstant]
-  nm_constants: list[int]
+  nm_constants: list[NumericConstant]
 
-  parent_bytecode: any
+  # Values for serializing
+  parent_prototype: Prototype
+  child_prototypes: list[Prototype]
+
+  # Values for disassembling
+  parent_bytecode: Bytecode
 
   def __init__(self) -> None:
     self.flags = 0
@@ -50,12 +60,7 @@ class Prototype(BytesWritable, BytesInitializable, Serializable):
 
     self.nm_constants.reverse()
     for nmk in self.nm_constants:
-      two_bytes = False
-      if nmk > 0xFFFFFFFF:
-        two_bytes = True
-      data.write_uleb128_33(nmk & 0xFFFFFFFF, two_bytes)
-      if two_bytes:
-        data.write_uleb128((nmk >> 32) & 0xFFFFFFFF)
+      NumericConstantsHelper.write(nmk, data)
     self.nm_constants.reverse()
 
     output.write_uleb128(len(data.data))
@@ -94,9 +99,7 @@ class Prototype(BytesWritable, BytesInitializable, Serializable):
     self.gc_constants.reverse()
 
     for _ in range(nm_constants_count):
-      value, have_another_num = input.read_uleb128_33()
-      if have_another_num:
-        value |= input.read_uleb128() << 32
+      value = NumericConstantsHelper.read(input)
       self.nm_constants.append(value)
     self.nm_constants.reverse()
 
@@ -134,10 +137,10 @@ class Prototype(BytesWritable, BytesInitializable, Serializable):
     if len(self.nm_constants) == 0:
       result += "; No Numeric Constants\n"
     else:
-      result += "; Numeric Constans:\n"
+      result += "; Numeric Constants:\n"
       index = 0
       for nmk in self.nm_constants:
-        result += f";   [{index}] = {nmk}\n"
+        result += f";   [{index}] = {NumericConstantsHelper.serialize(nmk)}\n"
         index += 1
 
     if len(self.upvalues) == 0:

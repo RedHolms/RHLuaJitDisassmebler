@@ -1,6 +1,7 @@
 # testing issue
 *.luac
 *.luas
+*.lua
 
 # python issue
 __pycache__

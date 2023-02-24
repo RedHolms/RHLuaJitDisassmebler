@@ -1,4 +1,5 @@
 from .Types import IByteStream
+from .Utils import normalize_number_sign
 
 def concat_bytes_to_number(data: bytes):
   result = 0
@@ -33,11 +34,32 @@ class ByteStream(IByteStream):
   def read_byte(self) -> int:
     return concat_bytes_to_number(self.read_bytes(1))
     
+  def read_byte_signed(self) -> int:
+    value = concat_bytes_to_number(self.read_bytes(1))
+    if value & 0x80:
+      return normalize_number_sign(value, 1)
+    else:
+      return value
+    
   def read_word(self) -> int:
     return concat_bytes_to_number(self.read_bytes(2))
+  
+  def read_word_signed(self) -> int:
+    value = concat_bytes_to_number(self.read_bytes(2))
+    if value & 0x8000:
+      return normalize_number_sign(value, 2)
+    else:
+      return value
     
   def read_dword(self) -> int:
     return concat_bytes_to_number(self.read_bytes(4))
+    
+  def read_dword_signed(self) -> int:
+    value = concat_bytes_to_number(self.read_bytes(4))
+    if value & 0x80000000:
+      return normalize_number_sign(value, 4)
+    else:
+      return value
 
   def read_uleb128(self) -> int:
     value = self.read_byte()
@@ -51,6 +73,13 @@ class ByteStream(IByteStream):
         if new_byte < 0x80:
           break
     return value
+
+  def read_uleb128_signed(self) -> int:
+    value = self.read_uleb128()
+    if value & 0x80000000:
+      return normalize_number_sign(value, 4)
+    else:
+      return value
 
   def read_uleb128_33(self) -> tuple[int, bool]:
     value = self.read_byte()
@@ -68,6 +97,13 @@ class ByteStream(IByteStream):
           break
     return value, mark
 
+  def read_uleb128_33_signed(self) -> tuple[int, bool]:
+    value, mark = self.read_uleb128_33()
+    if value & 0x80000000:
+      return normalize_number_sign(value, 4), mark
+    else:
+      return value, mark
+
   def write_bytes(self, data: bytes):
     for byte in data:
       self.write_byte(byte)
@@ -83,12 +119,14 @@ class ByteStream(IByteStream):
     self.write_bytes(transorm_number_to_bytes(value, 4))
 
   def write_uleb128(self, value: int):
+    value &= 0xFFFFFFFF
     while value >= 0x80:
       self.write_byte((value & 0x7f) | 0x80)
       value >>= 7
     self.write_byte(value)
 
   def write_uleb128_33(self, value: int, mark: bool):
+    value &= 0xFFFFFFFF
     if value >= 0x40:
       self.write_byte(((value & 0x3f) << 1) | 0x80 | mark)
       value >>= 6
