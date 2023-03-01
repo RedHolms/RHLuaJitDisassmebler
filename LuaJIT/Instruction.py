@@ -1,4 +1,4 @@
-from .Opcodes import OpcodeInfo, OPCODES_INFO, UNKNOWN_OPCODE_INFO
+from .Opcodes import OpcodeInfo, OPCODES_INFO, UNKNOWN_OPCODE_INFO, TYPES_TO_PREFIXES_MAP
 from .Types import BytesWritable, BytesInitializable, Serializable
 from .Utils import get_instruction_argument
 
@@ -52,7 +52,23 @@ class Instruction(BytesWritable, BytesInitializable, Serializable):
 
     prefix = " "
     for k, v in opcode_info.arguments.items():
-      result += f"{prefix}{v}:{self.arguments[k]}"
+      if v == "pri":
+        primitive = ""
+        match self.arguments[k]:
+          case 0:
+            primitive = "nil"
+          case 1:
+            primitive = "false"
+          case 2:
+            primitive = "true"
+          case _:
+            primitive = "!nil"
+        result += f"{prefix}{primitive}"
+      elif v == "jump":
+        jump_amount = self.arguments[k] - 32767
+        result += f"{prefix}{'+' if jump_amount > 0 else '-' if jump_amount < 0 else ''}{jump_amount}"
+      else:
+        result += f"{prefix}{TYPES_TO_PREFIXES_MAP[v]}{self.arguments[k]}"
       prefix = ", "
 
     return result

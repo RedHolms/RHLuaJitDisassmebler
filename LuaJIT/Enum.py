@@ -29,7 +29,7 @@ class EnumMeta(type):
     return
 
   def __contains__(self, target_value: typing.Any) -> bool:
-    for value_name in self._get_enum_values():
+    for value_name in self._get_all_enum_values_names():
       value = getattr(self, value_name)
       if type(value) == EnumMeta and target_value in value:
         return True
@@ -38,8 +38,8 @@ class EnumMeta(type):
     return False
 
   def __iter__(self):
-    for attrName in self._get_enum_values():
-      yield getattr(self, attrName)
+    for value_name in self._get_all_enum_values_names():
+      yield value_name, getattr(self, value_name)
 
 class Enum(metaclass=EnumMeta):
   # we can't create instance of enum

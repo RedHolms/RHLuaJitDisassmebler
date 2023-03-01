@@ -1,27 +1,36 @@
 from .Types import BytesWritable, BytesInitializable, Serializable
+from .Enum import Enum
+from .Utils import indent_string
 
 from .ByteStream import ByteStream
 from .Prototype import Prototype
 
+class BytecodeFlag(Enum):
+  BigEndian       = 0x01
+  StripDebugInfo  = 0x02
+  UsesFFI         = 0x04
+  x64Bit          = 0x08
+
 class Bytecode(BytesWritable, BytesInitializable, Serializable):
   version: int
-  flags: int
-  prototypes: list[Prototype]
-  prototypes_stack_top: int
+  flags: BytecodeFlag
+  global_chunk: Prototype
+
+  _prototypes_stack: list[Prototype]
 
   def __init__(self) -> None:
     self.version = 0
     self.flags = 0
-    self.prototypes = []
-    self.prototypes_stack_top = -1
+    self.global_chunk = None
+    self._prototypes_stack = []
 
   def write(self, output: ByteStream):
     output.write_bytes(b"\x1BLJ")
     output.write_byte(self.version)
     output.write_uleb128(self.flags)
 
-    for prototype in self.prototypes:
-      prototype.write(output)
+    self.global_chunk.write(output)
+
     output.write_byte(0)
 
   def read(self, input: ByteStream):
@@ -33,37 +42,42 @@ class Bytecode(BytesWritable, BytesInitializable, Serializable):
     self.version = input.read_byte()
     self.flags = input.read_uleb128()
 
-    self.prototypes = []
     while True:
       prototype = Prototype()
       prototype.parent_bytecode = self
       if not prototype.read(input):
         break
-      self.prototypes_stack_top += 1
-      self.prototypes.append(prototype)
+      self._prototypes_stack.append(prototype)
+    
+    self.global_chunk = self._prototypes_stack[-1]
+    self._prototypes_stack.clear()
 
   def serialize(self) -> str:
     result = ""
 
-    result += f"; Bytecode version: {self.version}\n"
-    result += f"; Bytecode flags: {self.flags}\n"
+    result += f".luajit {self.version if self.version < 0x80 else hex(self.version).capitalize()}\n"
     
-    if self.flags & 2 == 0:
-      result += "; Have debug info\n"
-    else:
-      result += "; No debug info\n"
+    flags = self.flags
+    for flag_name, flag in BytecodeFlag:
+      if flags & flag:
+        result += f".{flag_name}\n"
+        # remove this flag
+        flags &= ~flag
 
-    if self.flags & 4 == 0:
-      result += "; No built-in FFI\n"
-    else:
-      result += "; Have FFI\n"
+    if flags != 0:
+      # have unknown flags
+      offset = 0
+      while flags != 0:
+        flags >>= 1
+        offset += 1
+
+        if not flags & 1:
+          continue
+
+        result += f".AddFlag({hex(1 << offset).capitalize()})\n"
+
     result += "\n"
 
-    index = 0
-    for proto in self.prototypes:
-      result += f"; Prototype #{index}\n"
-      index += 1
-      result += proto.serialize()
-    result += '\n'
+    result += indent_string("_entry:\n" + self.global_chunk.serialize())
 
     return result

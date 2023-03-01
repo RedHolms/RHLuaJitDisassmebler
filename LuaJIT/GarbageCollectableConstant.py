@@ -1,6 +1,6 @@
 from .Types import BytesWritable, BytesInitializable, Serializable
 from .Enum import Enum
-from .Utils import transform_bytes_to_user_string, normalize_number_sign, interpret_int_as_float, interpret_float_as_int
+from .Utils import transform_bytes_to_user_string, normalize_number_sign, interpret_int_as_float, interpret_float_as_int, indent_string
 
 from .ConstantTable import ConstantTable
 from .ByteStream import ByteStream
@@ -56,8 +56,10 @@ class GarbageCollectableConstant(BytesWritable, BytesInitializable, Serializable
     self.type = input.read_uleb128()
     
     if self.type == GarbageCollectableConstantType.CHILD:
-      self.value = parent_bytecode.prototypes_stack_top
-      parent_bytecode.prototypes_stack_top -= 1
+      child_prototype = parent_bytecode._prototypes_stack.pop()
+      self.value = child_prototype
+      child_prototype.parent_prototype = self.parent_prototype
+      self.parent_prototype.child_prototypes.append(child_prototype)
     elif self.type == GarbageCollectableConstantType.TABLE:
       table = ConstantTable()
       table.read(input)
@@ -82,7 +84,20 @@ class GarbageCollectableConstant(BytesWritable, BytesInitializable, Serializable
     result = ""
 
     if self.type == GarbageCollectableConstantType.CHILD:
-      result += "Prototype#" + str(self.value)
+      child_content = indent_string(self.value.serialize())
+
+      result += "function("
+      if self.value.flags & 0x02:
+        result += "...)\n  "
+      else:
+        prefix = ""
+        for i in range(self.value.parameters_number):
+          result += f"{prefix}%{i}"
+          prefix = ", "
+        result += ")\n  "
+      
+      result += child_content
+      result += "\n.end"
     elif self.type == GarbageCollectableConstantType.TABLE:
       result += self.value.serialize()
     elif self.type == GarbageCollectableConstantType.INT64 or self.type == GarbageCollectableConstantType.UINT64:

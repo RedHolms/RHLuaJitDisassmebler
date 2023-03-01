@@ -49,18 +49,18 @@ class ConstantTable(BytesWritable, BytesInitializable, Serializable):
 
     index = 0
     for value in self.array:
-      result += f";     [{index}] = "
+      result += f"  [{index}] = "
       index += 1
       result += value.serialize()
       result += "\n"
 
     for key, value in self.hash:
-      result += ";     ["
+      result += "  ["
       result += key.serialize()
       result += "] = "
       result += value.serialize()
       result += "\n"
 
-    result += ";   }"
+    result += "}"
 
     return result

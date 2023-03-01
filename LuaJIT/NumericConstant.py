@@ -1,5 +1,5 @@
 import abc
 
-# Abstract class
+# Abstract number
 # Can be either int or float
 class NumericConstant(abc.ABC): pass

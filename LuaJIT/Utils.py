@@ -35,3 +35,6 @@ def interpret_int_as_float(int_value: int) -> float:
 
 def interpret_float_as_int(float_value: float) -> int:
   return numpy.array([ float_value ], dtype="double").view(dtype="uint64")[0]
+
+def indent_string(text: str, amount: int = 2, indent_symbol: str = " ") -> str:
+  return text.replace("\n", "\n" + indent_symbol * amount)

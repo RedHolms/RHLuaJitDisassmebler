@@ -1,4 +1,5 @@
 from .Types import BytesWritable, BytesInitializable, Serializable
+from .Enum import Enum
 
 from .Instruction import Instruction
 from .GarbageCollectableConstant import GarbageCollectableConstant
@@ -9,20 +10,23 @@ from .NumericConstantsHelper import NumericConstantsHelper
 class Prototype: pass
 class Bytecode: pass
 
+class PrototypeFlag(Enum):
+  HaveChilds  = 0x01
+  VarArg      = 0x02
+  UsesFFi     = 0x04
+  NoJIT       = 0x08
+  PatchILOOP  = 0x10
+
 class Prototype(BytesWritable, BytesInitializable, Serializable):
-  flags: int
+  flags: PrototypeFlag
   parameters_number: int
   frame_size: int
   instructions: list[Instruction]
   upvalues: list[int]
   gc_constants: list[GarbageCollectableConstant]
   nm_constants: list[NumericConstant]
-
-  # Values for serializing
   parent_prototype: Prototype
   child_prototypes: list[Prototype]
-
-  # Values for disassembling
   parent_bytecode: Bytecode
 
   def __init__(self) -> None:
@@ -33,9 +37,14 @@ class Prototype(BytesWritable, BytesInitializable, Serializable):
     self.upvalues = []
     self.gc_constants = []
     self.nm_constants = []
+    self.parent_prototype = None
+    self.child_prototypes = []
     self.parent_bytecode = None
 
   def write(self, output: ByteStream):
+    for child in self.child_prototypes:
+      child.write(output)
+
     data = ByteStream()
     data.write_byte(self.flags)
     data.write_byte(self.parameters_number)
@@ -48,20 +57,16 @@ class Prototype(BytesWritable, BytesInitializable, Serializable):
     for instruction in self.instructions:
       instruction.write(data)
 
-    self.upvalues.reverse()
     for upvalue in self.upvalues:
       data.write_word(upvalue)
-    self.upvalues.reverse()
     
     self.gc_constants.reverse()
     for gck in self.gc_constants:
       gck.write(data)
     self.gc_constants.reverse()
 
-    self.nm_constants.reverse()
     for nmk in self.nm_constants:
       NumericConstantsHelper.write(nmk, data)
-    self.nm_constants.reverse()
 
     output.write_uleb128(len(data.data))
     output.write_bytes(data.data)
@@ -89,7 +94,6 @@ class Prototype(BytesWritable, BytesInitializable, Serializable):
 
     for _ in range(upvalues_count):
       self.upvalues.append(input.read_word())
-    self.upvalues.reverse()
 
     for _ in range(gc_constants_count):
       gc_constant = GarbageCollectableConstant()
@@ -101,66 +105,59 @@ class Prototype(BytesWritable, BytesInitializable, Serializable):
     for _ in range(nm_constants_count):
       value = NumericConstantsHelper.read(input)
       self.nm_constants.append(value)
-    self.nm_constants.reverse()
 
     return True
 
   def serialize(self) -> str:
     result = ""
 
-    result += f"; Prototype flags: {self.flags}\n"
+    have_header = False
 
-    if self.flags & 1 == 0:
-      result += "; No child prototypes\n"
-    else:
-      result += "; Have child prototypes\n"
+    if self.flags & PrototypeFlag.NoJIT:
+      result += ".NoJIT\n"
+      have_header = True
+    if self.flags & PrototypeFlag.PatchILOOP:
+      result += ".PatchILOOP\n"
+      have_header = True
+
+    index = 0
+    for gck in self.gc_constants:
+      have_header = True
+      result += f".const @{index} = "
+      index += 1
+      result += gck.serialize()
+      result += "\n"
     
-    if self.flags & 2 != 0:
-      result += "; Var-arg function\n"
-    
-    if self.flags & 4 != 0:
-      result += "; Uses BC_KCDATA for FFI datatypes\n"
-    
-    result += f"; Frame size: {self.frame_size}\n"
+    index = 0
+    for nmk in self.nm_constants:
+      have_header = True
+      result += f".number #{index} = {NumericConstantsHelper.serialize(nmk)}\n"
+      index += 1
 
-    if len(self.gc_constants) == 0:
-      result += "; No GC-Constants\n"
-    else:
-      result += "; GC-Constants:\n"
-      index = 0
-      for gck in self.gc_constants:
-        result += f";   [{index}] = "
-        index += 1
-        result += gck.serialize()
-        result += "\n"
-    
-    if len(self.nm_constants) == 0:
-      result += "; No Numeric Constants\n"
-    else:
-      result += "; Numeric Constants:\n"
-      index = 0
-      for nmk in self.nm_constants:
-        result += f";   [{index}] = {NumericConstantsHelper.serialize(nmk)}\n"
-        index += 1
+    index = 0
+    for upvalue in self.upvalues:
+      have_header = True
+      result += f".upvalue ^{index} = "
 
-    if len(self.upvalues) == 0:
-      result += "; No upvalues\n"
-    else:
-      result += "; Upvalues:\n"
-      index = 0
-      for upvalue in self.upvalues:
-        result += f";   [{index}] = {upvalue}\n"
-        index += 1
+      real_value = upvalue & 0x3FFF
+      is_local = (upvalue & 0x8000) != 0
+      is_immutable = (upvalue & 0x4000) != 0
 
-    result += "; Bytecode:\n\n"
+      if is_local:
+        result += "local "
+      if is_immutable:
+        result += "readonly "
 
-    address = 0
+      result += str(real_value) + "\n"
+
+      index += 1
+
+    if have_header:
+      result += "\n"
+
     for instruction in self.instructions:
-      result += f"{'%04d' % address}  "
       result += instruction.serialize()
       result += "\n"
-      address += 1
-    
-    result += "\n"
+    result = result[:-1]
 
     return result
