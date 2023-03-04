@@ -79,6 +79,12 @@ class Serializable(AbstractClass):
 
 # Object that can be initialized (using read() method!) from bytestream-like object
 class BytesInitializable(AbstractClass):
+  def __init__(self, input: IByteStream):
+    if not isinstance(input, IByteStream):
+      raise TypeError(f"Invalid type of input. Expected IByteStream, gared '{type(input)}'")
+
+    self.read(input)
+
   @AbstractMethod
   def read(self, input: IByteStream):
     pass

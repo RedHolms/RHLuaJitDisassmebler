@@ -7,9 +7,15 @@ class ConstantTable(BytesWritable, BytesInitializable, Serializable):
   array: list[ConstantTableValue]
   hash: list[tuple[ConstantTableValue, ConstantTableValue]]
 
-  def __init__(self) -> None:
-    self.array = []
-    self.hash = []
+  def __init__(self, data: ByteStream = None,
+               array: list[ConstantTableValue] = [],
+               hash: list[tuple[ConstantTableValue, ConstantTableValue]] = []
+  ) -> None:
+    self.array = array
+    self.hash = hash
+
+    try: BytesInitializable.__init__(self, data)
+    except: pass
 
   def write(self, output: ByteStream):
     output.write_uleb128(len(self.array))

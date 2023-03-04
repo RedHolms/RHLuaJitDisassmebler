@@ -29,7 +29,7 @@ class Prototype(BytesWritable, BytesInitializable, Serializable):
   child_prototypes: list[Prototype]
   parent_bytecode: Bytecode
 
-  def __init__(self) -> None:
+  def __init__(self, data: ByteStream) -> None:
     self.flags = 0
     self.parameters_number = 0
     self.frame_size = 0
@@ -40,6 +40,9 @@ class Prototype(BytesWritable, BytesInitializable, Serializable):
     self.parent_prototype = None
     self.child_prototypes = []
     self.parent_bytecode = None
+    
+    try: BytesInitializable.__init__(self, data)
+    except: pass
 
   def write(self, output: ByteStream):
     for child in self.child_prototypes:

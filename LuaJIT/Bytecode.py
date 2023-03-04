@@ -18,11 +18,16 @@ class Bytecode(BytesWritable, BytesInitializable, Serializable):
 
   _prototypes_stack: list[Prototype]
 
-  def __init__(self) -> None:
-    self.version = 0
-    self.flags = 0
-    self.global_chunk = None
-    self._prototypes_stack = []
+  def __init__(self, data: ByteStream = None,
+                version: int = 2,
+                flags: BytecodeFlag = BytecodeFlag.StripDebugInfo,
+                global_chunk: Prototype = None) -> None:
+    self.version = version
+    self.flags = flags
+    self.global_chunk = global_chunk
+
+    try: BytesInitializable.__init__(self, data)
+    except: pass
 
   def write(self, output: ByteStream):
     output.write_bytes(b"\x1BLJ")
@@ -77,7 +82,7 @@ class Bytecode(BytesWritable, BytesInitializable, Serializable):
         result += f".AddFlag({hex(1 << offset).capitalize()})\n"
 
     result += "\n"
-
     result += indent_string("_entry:\n" + self.global_chunk.serialize())
+    result += "\n"
 
     return result

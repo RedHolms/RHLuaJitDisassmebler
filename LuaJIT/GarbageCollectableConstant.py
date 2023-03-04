@@ -5,6 +5,8 @@ from .Utils import transform_bytes_to_user_string, normalize_number_sign, interp
 from .ConstantTable import ConstantTable
 from .ByteStream import ByteStream
 
+class Prototype: pass
+
 class GarbageCollectableConstantType(Enum):
   CHILD = 0
   TABLE = 1
@@ -15,14 +17,21 @@ class GarbageCollectableConstantType(Enum):
 
 class GarbageCollectableConstant(BytesWritable, BytesInitializable, Serializable):
   type: GarbageCollectableConstantType
-  value: ConstantTable | int | complex | bytes
+  value: Prototype | ConstantTable | int | complex | bytes
 
-  parent_prototype: any
+  parent_prototype: Prototype
 
-  def __init__(self) -> None:
-    self.type = 0
-    self.value = None
-    self.parent_prototype = None
+  def __init__(self, data: ByteStream = None,
+               type: GarbageCollectableConstantType = GarbageCollectableConstantType.CHILD,
+               value: ConstantTable | int | complex | bytes = None,
+               parent_prototype: Prototype = None
+  ) -> None:
+    self.type = type
+    self.value = value
+    self.parent_prototype = parent_prototype
+
+    try: BytesInitializable.__init__(self, data)
+    except: pass
 
   def write(self, output: ByteStream):
     type_to_write = self.type
