@@ -1,0 +1,19 @@
+; This file contains description of Lua assembly language (luas)
+; Comments can be written using ';' symbol and comment after it directly (to the end of line)
+
+; There's directives (special words, starts with dot)
+; Some of them required and some optional
+
+; .luajit directive
+; Required
+; This directive specifies version of luajit bytecode
+; Note that you can use both hexadecimal and decimal
+.luajit 2 ; Second version of LuaJIT bytecode
+
+; .StripDebugInfo directive
+; Optional
+; This directive generaly does nothing, because we have no source code
+; But it usefull for generating disassebled code
+.StripDebugInfo
+
+; TODO
