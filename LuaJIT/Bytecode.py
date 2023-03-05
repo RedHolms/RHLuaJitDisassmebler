@@ -19,15 +19,21 @@ class Bytecode(BytesWritable, BytesInitializable, Serializable):
   _prototypes_stack: list[Prototype]
 
   def __init__(self, data: ByteStream = None,
-                version: int = 2,
-                flags: BytecodeFlag = BytecodeFlag.StripDebugInfo,
+                version: int = None, # = 2
+                flags: BytecodeFlag = None, # = BytecodeFlag.StripDebugInfo
                 global_chunk: Prototype = None) -> None:
+    if version is None:
+      version = 2
+    if flags is None:
+      flags = BytecodeFlag.StripDebugInfo
+
     self.version = version
     self.flags = flags
     self.global_chunk = global_chunk
+    self._prototypes_stack = []
 
-    try: BytesInitializable.__init__(self, data)
-    except: pass
+    if data is not None:
+      BytesInitializable.__init__(self, data)
 
   def write(self, output: ByteStream):
     output.write_bytes(b"\x1BLJ")
@@ -48,11 +54,12 @@ class Bytecode(BytesWritable, BytesInitializable, Serializable):
     self.flags = input.read_uleb128()
 
     while True:
-      prototype = Prototype()
-      prototype.parent_bytecode = self
+      prototype = Prototype(parent_bytecode=self)
       if not prototype.read(input):
         break
       self._prototypes_stack.append(prototype)
+
+    assert len(self._prototypes_stack) > 0, "Corrupted bytecode. No global chunk"
     
     self.global_chunk = self._prototypes_stack[-1]
     self._prototypes_stack.clear()

@@ -22,16 +22,19 @@ class GarbageCollectableConstant(BytesWritable, BytesInitializable, Serializable
   parent_prototype: Prototype
 
   def __init__(self, data: ByteStream = None,
-               type: GarbageCollectableConstantType = GarbageCollectableConstantType.CHILD,
+               type: GarbageCollectableConstantType = None,
                value: ConstantTable | int | complex | bytes = None,
                parent_prototype: Prototype = None
   ) -> None:
+    if type is None:
+      type = GarbageCollectableConstantType.CHILD
+
     self.type = type
     self.value = value
     self.parent_prototype = parent_prototype
 
-    try: BytesInitializable.__init__(self, data)
-    except: pass
+    if data is not None:
+      BytesInitializable.__init__(self, data)
 
   def write(self, output: ByteStream):
     type_to_write = self.type
@@ -68,7 +71,7 @@ class GarbageCollectableConstant(BytesWritable, BytesInitializable, Serializable
       child_prototype = parent_bytecode._prototypes_stack.pop()
       self.value = child_prototype
       child_prototype.parent_prototype = self.parent_prototype
-      self.parent_prototype.child_prototypes.append(child_prototype)
+      self.parent_prototype.child_prototypes.insert(0, child_prototype)
     elif self.type == GarbageCollectableConstantType.TABLE:
       table = ConstantTable()
       table.read(input)

@@ -17,14 +17,17 @@ class ConstantTableValue(BytesWritable, BytesInitializable, Serializable):
   value: None | int | bytes
 
   def __init__(self, data: ByteStream = None,
-               type: ConstantTableValueType = ConstantTableValueType.NIL,
+               type: ConstantTableValueType = None, # = ConstantTableValueType.NIL
                value: None | int | bytes = None
   ) -> None:
+    if type is None:
+      type = ConstantTableValueType.NIL
+
     self.type = type
     self.value = value
 
-    try: BytesInitializable.__init__(self, data)
-    except: pass
+    if data is not None:
+      BytesInitializable.__init__(self, data)
 
   def write(self, output: ByteStream):
     type_to_write = self.type

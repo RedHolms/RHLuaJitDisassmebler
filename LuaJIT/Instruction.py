@@ -1,4 +1,4 @@
-from .Opcodes import OpcodeInfo, OPCODES_INFO, UNKNOWN_OPCODE_INFO, TYPES_TO_PREFIXES_MAP
+from .Opcodes import OpcodeInfo, OPCODES_INFO, UNKNOWN_OPCODE_INFO, TYPES_TO_PREFIXES_MAP, get_opcode_value
 from .Types import BytesWritable, BytesInitializable, Serializable
 from .Utils import get_instruction_argument
 
@@ -8,9 +8,31 @@ class Instruction(BytesWritable, BytesInitializable, Serializable):
   opcode: int
   arguments: dict[str, int] # [a/b/c/d] = value
 
-  def __init__(self) -> None:
-    self.opcode = 0
-    self.arguments = {}
+  def __init__(self, data: ByteStream = None,
+               opcode: int = 0,
+               arguments: dict[str, int] = None, # = {}
+               a: int = None, b: int = None, c: int = None, d: int = None
+  ) -> None:
+    if arguments is None:
+      arguments = {}
+
+    if type(opcode) == str:
+      opcode = get_opcode_value(opcode.upper())
+
+    self.opcode = opcode
+    self.arguments = arguments
+
+    if a is not None:
+      self.arguments['a'] = a
+    if b is not None:
+      self.arguments['b'] = b
+    if c is not None:
+      self.arguments['c'] = c
+    if d is not None:
+      self.arguments['d'] = d
+
+    if data is not None:
+      BytesInitializable.__init__(self, data)
 
   def get_opcode_info(self) -> OpcodeInfo:
     return OPCODES_INFO[self.opcode] if self.opcode < len(OPCODES_INFO) else UNKNOWN_OPCODE_INFO

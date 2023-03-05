@@ -31,10 +31,10 @@ def normalize_number_sign(value: int, size_in_bytes: int) -> int:
     return value
 
 def interpret_int_as_float(int_value: int) -> float:
-  return numpy.array([ int_value ], dtype="uint64").view(dtype="double")[0]
+  return float(numpy.array([ int_value ], dtype="uint64").view(dtype="double")[0])
 
 def interpret_float_as_int(float_value: float) -> int:
-  return numpy.array([ float_value ], dtype="double").view(dtype="uint64")[0]
+  return int(numpy.array([ float_value ], dtype="double").view(dtype="uint64")[0])
 
 def indent_string(text: str, amount: int = 2, indent_symbol: str = " ") -> str:
   return text.replace("\n", "\n" + indent_symbol * amount)
